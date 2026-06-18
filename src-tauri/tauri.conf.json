@@ -34,6 +34,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/icon.icns",
       "icons/icon.ico",
@@ -52,7 +53,7 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQzRDcxODcxMjREOTVFNwpSV1RubFUwU2gzRTlEYWNhdFZJa0tTZldxTm1SdERQTzBXMThuaUE4cTZMdWtudE54RllSNW55ego=",
-      "endpoints": ["https://github.com/NicCsn/uni-dash/releases/latest/download/update-{target}.json"]
+      "endpoints": ["https://github.com/NicCsn/uni-dash/releases/latest/download/update-{{target}}.json"]
     }
   }
 }
