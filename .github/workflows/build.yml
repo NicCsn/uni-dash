@@ -75,3 +75,20 @@ jobs:
             src-tauri/target/release/bundle/macos/*.app.tar.gz
             src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
             src-tauri/target/release/bundle/macos/latest.json
+
+      - name: Update Homebrew Tap
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          DMG=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" | head -1)
+          SHA=$(shasum -a 256 "$DMG" | cut -d' ' -f1)
+
+          git clone https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/NicCsn/homebrew-uni-dash.git /tmp/homebrew-tap
+          cd /tmp/homebrew-tap
+          sed -i '' "s/version \".*\"/version \"${VERSION}\"/" Casks/uni-dash.rb
+          sed -i '' "s/sha256 \".*\"/sha256 \"${SHA}\"/" Casks/uni-dash.rb
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add Casks/uni-dash.rb
+          git commit -m "Update to v${VERSION}" || true
+          git push
