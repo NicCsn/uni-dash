@@ -37,6 +37,9 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Install DMG bundler
+        run: npm install -g create-dmg
+
       - name: Build Tauri app
         run: npm run tauri build
         env:
