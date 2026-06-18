@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs'
 import { appDataDir } from '@tauri-apps/api/path'
+import { check } from '@tauri-apps/plugin-updater'
+import { isTauri } from '@tauri-apps/api/core'
 import { useTheme } from '../hooks/useTheme'
 import { useEvents } from '../hooks/useEvents'
 
@@ -9,6 +11,8 @@ export default function Settings() {
   const { theme, toggle } = useTheme()
   const { clearEvents } = useEvents()
   const [rootPath, setRootPath] = useState<string | null>(null)
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'uptodate' | 'available'>('idle')
+  const [updateVersion, setUpdateVersion] = useState('')
 
   useEffect(() => {
     setRootPath(localStorage.getItem('documents_root'))
@@ -30,6 +34,22 @@ export default function Settings() {
     localStorage.removeItem('documents_root')
     setRootPath(null)
   }, [])
+
+  async function handleCheckUpdates() {
+    if (!isTauri()) return
+    setUpdateStatus('checking')
+    try {
+      const update = await check()
+      if (update) {
+        setUpdateVersion(update.version)
+        setUpdateStatus('available')
+      } else {
+        setUpdateStatus('uptodate')
+      }
+    } catch {
+      setUpdateStatus('uptodate')
+    }
+  }
 
   return (
     <div className="h-full overflow-auto animate-[fadeIn_0.2s_ease]">
@@ -221,6 +241,45 @@ export default function Settings() {
             >
               Clear All Events
             </button>
+          </div>
+        </section>
+
+        {/* Updates */}
+        <section>
+          <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--color-text)' }}>
+            Updates
+          </h3>
+          <div
+            className="rounded-xl border p-4 flex flex-col gap-3"
+            style={{
+              background: 'var(--color-surface)',
+              borderColor: 'var(--color-border)',
+            }}
+          >
+            <div className="text-sm" style={{ color: 'var(--color-text)' }}>
+              Uni Dash v0.1.0
+            </div>
+            <button
+              onClick={handleCheckUpdates}
+              disabled={updateStatus === 'checking'}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:opacity-85 active:scale-95 self-start disabled:opacity-50"
+              style={{
+                background: updateStatus === 'available'
+                  ? 'var(--color-accent)'
+                  : 'var(--color-surface-alt)',
+                color: updateStatus === 'available' ? '#fff' : 'var(--color-text-secondary)',
+              }}
+            >
+              {updateStatus === 'idle' && 'Check for Updates'}
+              {updateStatus === 'checking' && 'Checking…'}
+              {updateStatus === 'uptodate' && 'Up to date ✓'}
+              {updateStatus === 'available' && `Update v${updateVersion} available`}
+            </button>
+            {updateStatus === 'available' && (
+              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                Install from the next release on GitHub
+              </p>
+            )}
           </div>
         </section>
 
