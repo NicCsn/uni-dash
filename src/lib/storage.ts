@@ -15,7 +15,7 @@ export function setAuthState(username: string | null, key: CryptoKey | null) {
 
 async function ensureDir(): Promise<string> {
   const base = await appDataDir()
-  const dir = `${base}${APP_DIR}`
+  const dir = base.endsWith('/') ? `${base}${APP_DIR}` : `${base}/${APP_DIR}`
   if (!(await exists(dir))) {
     await mkdir(dir, { recursive: true })
   }

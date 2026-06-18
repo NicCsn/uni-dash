@@ -4,7 +4,7 @@ import { readJson } from '../lib/storage'
 
 async function ensureBackupDir(dateStr: string): Promise<string> {
   const base = await (await import('@tauri-apps/api/path')).appDataDir()
-  const dir = `${base}uni-dash-backups/${dateStr}`
+  const dir = base.endsWith('/') ? `${base}uni-dash-backups/${dateStr}` : `${base}/uni-dash-backups/${dateStr}`
   const { mkdir, exists } = await import('@tauri-apps/plugin-fs')
   if (!(await exists(dir))) {
     await mkdir(dir, { recursive: true })
