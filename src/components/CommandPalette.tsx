@@ -20,6 +20,7 @@ const SECTION_LABELS: Record<Section, string> = {
   dashboard: 'Dashboard',
   calendar: 'Calendar',
   todos: 'Todos',
+  pomodoro: 'Pomodoro',
   documents: 'Documents',
   links: 'Quick Links',
   settings: 'Settings',
@@ -62,6 +63,17 @@ const ICONS: Record<string, React.ReactNode> = {
     </svg>
   ),
 }
+
+const SHORTCUTS = [
+  { keys: '⌘K', label: 'Toggle command palette' },
+  { keys: '⌘,', label: 'Open settings' },
+  { keys: 'Esc', label: 'Close palette' },
+  { keys: '↑ ↓', label: 'Navigate results' },
+  { keys: 'Enter', label: 'Select result' },
+  { keys: '⌘N', label: 'New todo (in Todos section)' },
+  { keys: '⌘⇧N', label: 'New event (in Calendar section)' },
+  { keys: '⌘S', label: 'Open settings' },
+]
 
 function matches(text: string, query: string): boolean {
   return text.toLowerCase().includes(query.toLowerCase())
@@ -133,7 +145,25 @@ export default function CommandPalette({ onNavigate }: Props) {
   }, [open])
 
   const results = useMemo<SearchResult[]>(() => {
-    if (!query.trim()) {
+    const trimmed = query.trim()
+
+    // Show available shortcuts
+    if (trimmed === '/shortcuts' || trimmed === '/help') {
+      return SHORTCUTS.map((s, i) => ({
+        id: `shortcut-${i}`,
+        title: s.keys,
+        subtitle: s.label,
+        section: 'settings' as Section,
+        icon: (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        ),
+      }))
+    }
+
+    if (!trimmed) {
       // Show recent items as suggestions
       const out: SearchResult[] = fetchedTodos
         .filter(t => !t.completed)
@@ -286,7 +316,7 @@ export default function CommandPalette({ onNavigate }: Props) {
               setSelectedIndex(0)
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Search events, todos, documents…"
+            placeholder="Search events, todos, documents… (type /shortcuts)"
             className="flex-1 py-3 text-sm bg-transparent outline-none"
             style={{ color: 'var(--color-text)' }}
           />
@@ -302,7 +332,7 @@ export default function CommandPalette({ onNavigate }: Props) {
         </div>
 
         {/* Results */}
-        {dataLoaded && results.length > 0 && (
+        {results.length > 0 && (
           <div ref={listRef} className="max-h-80 overflow-auto py-1">
             {results.map((r, i) => (
               <button
@@ -329,13 +359,14 @@ export default function CommandPalette({ onNavigate }: Props) {
           </div>
         )}
 
-        {dataLoaded && query.trim() && results.length === 0 && (
+        {results.length === 0 && query.trim() && dataLoaded && (
           <div className="px-4 py-6 text-sm text-center" style={{ color: 'var(--color-text-secondary)' }}>
             No results for "{query}"
+            <div className="mt-1 text-xs">Try /shortcuts for available commands</div>
           </div>
         )}
 
-        {!dataLoaded && (
+        {results.length === 0 && !dataLoaded && !query.trim().startsWith('/') && (
           <div className="px-4 py-6 text-sm text-center" style={{ color: 'var(--color-text-secondary)' }}>
             Loading…
           </div>

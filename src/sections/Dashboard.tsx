@@ -1,8 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { open as openShell } from '@tauri-apps/plugin-shell'
 import { useEvents } from '../hooks/useEvents'
 import { useTodos } from '../hooks/useTodos'
 import { useLinks } from '../hooks/useLinks'
+import { useStats } from '../hooks/useStats'
+import { useNotifications } from '../hooks/useNotifications'
 import { getEventsForDate } from '../lib/calendar'
 import type { Section } from '../components/Sidebar'
 
@@ -52,11 +54,26 @@ export default function Dashboard({ onNavigate }: Props) {
   const { events } = useEvents()
   const { todos } = useTodos()
   const { links } = useLinks()
+  const { todosCompletedToday, pomodoroSessionsToday, focusMinutesToday } = useStats()
+  useNotifications()
 
-  const today = useMemo(() => new Date(), [])
+  const [now, setNow] = useState(new Date())
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const dashboardWidgets = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('dashboard_widgets')
+      return stored ? JSON.parse(stored) : { events: true, countdown: true, links: true, stats: true }
+    } catch { return { events: true, countdown: true, links: true, stats: true } }
+  }, [])
+
   const todayEvents = useMemo(
-    () => getEventsForDate(events, today).sort((a, b) => a.startTime.localeCompare(b.startTime)),
-    [events, today],
+    () => getEventsForDate(events, now).sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [events, now],
   )
 
   const deadlines = useMemo(
@@ -72,17 +89,49 @@ export default function Dashboard({ onNavigate }: Props) {
   return (
     <div className="h-full overflow-auto animate-[fadeIn_0.2s_ease]">
       <div className="max-w-3xl mx-auto px-6 py-8 flex flex-col gap-8">
-        {/* Greeting */}
+        {/* Greeting + Clock */}
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
             {greeting()}
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-            {DAY_NAMES[today.getDay()]}, {today.getDate()}. {MONTH_NAMES[today.getMonth()]} {today.getFullYear()}
+            {DAY_NAMES[now.getDay()]}, {now.getDate()}. {MONTH_NAMES[now.getMonth()]} {now.getFullYear()}
+          </p>
+          <p className="text-3xl font-bold tabular-nums mt-1" style={{ color: 'var(--color-text)' }}>
+            {String(now.getHours()).padStart(2, '0')}:{String(now.getMinutes()).padStart(2, '0')}:{String(now.getSeconds()).padStart(2, '0')}
           </p>
         </div>
 
+        {/* Stats tiles */}
+        {dashboardWidgets.stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Open Todos', value: activeTodos, color: 'var(--color-accent)' },
+            { label: 'Done Today', value: todosCompletedToday, color: '#22c55e' },
+            { label: 'Pomodoros', value: pomodoroSessionsToday, color: '#8b5cf6' },
+            { label: 'Focus Today', value: `${focusMinutesToday}m`, color: '#f97316' },
+          ].map(stat => (
+            <div
+              key={stat.label}
+              className="rounded-xl border p-4 flex flex-col items-center gap-1"
+              style={{
+                background: 'var(--color-surface)',
+                borderColor: 'var(--color-border)',
+              }}
+            >
+              <span className="text-2xl font-bold tabular-nums" style={{ color: stat.color }}>
+                {stat.value}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                {stat.label}
+              </span>
+            </div>
+          ))}
+        </div>
+        )}
+
         {/* Today's Events */}
+        {dashboardWidgets.events && (
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
@@ -130,8 +179,10 @@ export default function Dashboard({ onNavigate }: Props) {
             )}
           </div>
         </section>
+        )}
 
         {/* Countdown */}
+        {dashboardWidgets.countdown && (
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
@@ -192,9 +243,10 @@ export default function Dashboard({ onNavigate }: Props) {
             )}
           </div>
         </section>
+        )}
 
         {/* Quick Links */}
-        {links.length > 0 && (
+        {dashboardWidgets.links && links.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
@@ -227,18 +279,6 @@ export default function Dashboard({ onNavigate }: Props) {
             </div>
           </section>
         )}
-
-        {/* Summary */}
-        <div
-          className="rounded-xl border p-4 text-sm"
-          style={{
-            background: 'var(--color-surface)',
-            borderColor: 'var(--color-border)',
-            color: 'var(--color-text-secondary)',
-          }}
-        >
-          {activeTodos} open todos · {todayEvents.length} events today · {links.length} quick links
-        </div>
       </div>
     </div>
   )

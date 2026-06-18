@@ -8,6 +8,9 @@ dist-ssr/
 # Rust (Tauri) build artifacts
 src-tauri/target/
 
+# Auto-generated Tauri schemas (regenerated on build)
+src-tauri/gen/
+
 # Environment files
 .env
 .env.*

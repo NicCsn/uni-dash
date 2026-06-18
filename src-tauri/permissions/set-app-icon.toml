@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "set-app-icon"
+description = "Allows setting the app icon from a file path"
+commands.allow = ["set_app_icon"]

@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import type { Priority } from '../types'
 import { useTodos } from '../hooks/useTodos'
+import { useStats } from '../hooks/useStats'
 import Modal from '../components/Modal'
 
 const PRIORITIES: { value: Priority; label: string; color: string }[] = [
@@ -10,7 +11,8 @@ const PRIORITIES: { value: Priority; label: string; color: string }[] = [
 ]
 
 export default function Todos() {
-  const { todos, addTodo, toggleTodo, removeTodo, editTodo } = useTodos()
+  const { todos, addTodo, toggleTodo, removeTodo, editTodo, reorderTodos, batchComplete, batchDelete } = useTodos()
+  const { logTodoCompleted } = useStats()
 
   const [newTitle, setNewTitle] = useState('')
   const [newDue, setNewDue] = useState('')
@@ -24,14 +26,66 @@ export default function Todos() {
   const [editPriority, setEditPriority] = useState<Priority>('medium')
   const [editCourse, setEditCourse] = useState('')
 
+  // Pointer-event drag & drop
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [visualDropTarget, setVisualDropTarget] = useState<string | null>(null)
+  const dragIdRef = useRef<string | null>(null)
+  const dropTargetRef = useRef<string | null>(null)
+
+  // Batch selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  // Available tags
+  const allTags = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('todo_tags') || '[]') as { name: string; color: string }[] }
+    catch { return [] }
+  }, [])
+
+  // Edit tags state
+  const [editTags, setEditTags] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!dragId) return
+    dragIdRef.current = dragId
+
+    const onMove = (e: PointerEvent) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY)
+      const item = el?.closest('[data-todo-id]') as HTMLElement | null
+      const id = item?.getAttribute('data-todo-id')
+      const target = id && id !== dragId ? id : null
+      dropTargetRef.current = target
+      setVisualDropTarget(target)
+    }
+
+    const onUp = () => {
+      if (dropTargetRef.current && dragIdRef.current) {
+        reorderTodos(dragIdRef.current, dropTargetRef.current)
+      }
+      dragIdRef.current = null
+      dropTargetRef.current = null
+      setDragId(null)
+      setVisualDropTarget(null)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [dragId, reorderTodos])
+
+  const PRIORITY_RANK: Record<Priority, number> = { high: 0, medium: 1, low: 2 }
+
   const sorted = useMemo(
     () =>
       [...todos].sort((a, b) => {
         if (a.completed !== b.completed) return a.completed ? 1 : -1
-        const order = { high: 0, medium: 1, low: 2 }
-        const pd = order[a.priority] - order[b.priority]
-        if (pd !== 0) return pd
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        const pa = PRIORITY_RANK[a.priority] ?? 1
+        const pb = PRIORITY_RANK[b.priority] ?? 1
+        if (pa !== pb) return pa - pb
+        return (a.order ?? 0) - (b.order ?? 0)
       }),
     [todos],
   )
@@ -52,6 +106,7 @@ export default function Todos() {
     setEditDue(todo.dueDate || '')
     setEditPriority(todo.priority)
     setEditCourse(todo.course)
+    setEditTags(todo.tags || [])
   }
 
   async function handleEdit() {
@@ -61,6 +116,7 @@ export default function Todos() {
       dueDate: editDue || null,
       priority: editPriority,
       course: editCourse.trim(),
+      tags: editTags,
     })
     setEditingId(null)
   }
@@ -87,6 +143,45 @@ export default function Todos() {
         </button>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div
+          className="flex items-center gap-3 px-4 py-2 border-b shrink-0"
+          style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-alt)' }}
+        >
+          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+            {selectedIds.size} selected
+          </span>
+          <button
+            onClick={async () => {
+              await batchComplete(selectedIds)
+              logTodoCompleted()
+              setSelectedIds(new Set())
+            }}
+            className="px-2 py-1 rounded text-xs font-medium transition-all hover:opacity-85 active:scale-95"
+            style={{ background: 'var(--color-accent)', color: '#fff' }}
+          >
+            Complete
+          </button>
+          <button
+            onClick={async () => {
+              await batchDelete(selectedIds)
+              setSelectedIds(new Set())
+            }}
+            className="px-2 py-1 rounded text-xs font-medium transition-all hover:opacity-85 active:scale-95"
+            style={{ background: '#ef4444', color: '#fff' }}
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="px-2 py-1 rounded text-xs font-medium transition-all hover:opacity-85 active:scale-95"
+            style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)' }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       <div className="flex-1 overflow-auto p-4">
         {sorted.length === 0 ? (
           <div
@@ -96,15 +191,45 @@ export default function Todos() {
             No todos yet. Click "+ Add Todo" to get started.
           </div>
         ) : (
-          <div className="max-w-2xl mx-auto flex flex-col gap-1">
+          <div ref={containerRef} className="max-w-2xl mx-auto flex flex-col gap-1">
             {sorted.map(todo => (
               <div
                 key={todo.id}
-                className="group flex items-center gap-3 px-4 py-3 rounded-xl transition-colors hover:bg-(--color-surface)"
-                style={{ color: 'var(--color-text)' }}
+                data-todo-id={todo.id}
+                onPointerDown={e => {
+                  if (todo.completed) return
+                  const target = e.target as HTMLElement
+                  if (target.closest('button')) return
+                  setDragId(todo.id)
+                }}
+                className="group flex items-center gap-3 px-4 py-3 rounded-xl select-none"
+                style={{
+                  color: 'var(--color-text)',
+                  opacity: dragId === todo.id ? 0.4 : 1,
+                  cursor: todo.completed ? 'default' : dragId === todo.id ? 'grabbing' : 'grab',
+                  background: visualDropTarget === todo.id ? 'var(--color-surface)' : 'transparent',
+                  borderTop: visualDropTarget === todo.id ? '2px solid var(--color-accent)' : '2px solid transparent',
+                  transition: 'opacity 0.15s, background 0.15s, border-color 0.15s',
+                }}
               >
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(todo.id)}
+                  onChange={e => {
+                    const next = new Set(selectedIds)
+                    if (e.target.checked) next.add(todo.id)
+                    else next.delete(todo.id)
+                    setSelectedIds(next)
+                  }}
+                  className="shrink-0 w-4 h-4 rounded cursor-pointer accent-(--color-accent)"
+                  style={{ accentColor: 'var(--color-accent)' }}
+                />
                 <button
-                  onClick={() => toggleTodo(todo.id)}
+                  onClick={async () => {
+                    const wasCompleted = todo.completed
+                    await toggleTodo(todo.id)
+                    if (!wasCompleted) logTodoCompleted()
+                  }}
                   className="shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
                   style={{
                     borderColor: todo.completed
@@ -158,6 +283,22 @@ export default function Todos() {
                       >
                         {todo.course}
                       </span>
+                    )}
+                    {(todo.tags?.length ?? 0) > 0 && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        {todo.tags.map(tagName => {
+                          const t = allTags.find(t => t.name === tagName)
+                          return t ? (
+                            <span
+                              key={t.name}
+                              className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                              style={{ background: t.color + '22', color: t.color }}
+                            >
+                              {t.name}
+                            </span>
+                          ) : null
+                        })}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -346,6 +487,37 @@ export default function Todos() {
               }}
             />
           </div>
+
+          {allTags.length > 0 && (
+            <div>
+              <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                Tags
+              </label>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {allTags.map(tag => {
+                  const active = editTags.includes(tag.name)
+                  return (
+                    <button
+                      key={tag.name}
+                      onClick={() => {
+                        setEditTags(prev =>
+                          active ? prev.filter(t => t !== tag.name) : [...prev, tag.name]
+                        )
+                      }}
+                      className="text-xs px-2 py-1 rounded-full font-medium transition-all active:scale-95"
+                      style={{
+                        background: active ? tag.color + '44' : 'var(--color-surface-alt)',
+                        color: active ? tag.color : 'var(--color-text-secondary)',
+                        outline: active ? `1.5px solid ${tag.color}` : 'none',
+                      }}
+                    >
+                      {tag.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-2 justify-end mt-1">
             <button

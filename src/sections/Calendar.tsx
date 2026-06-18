@@ -141,6 +141,9 @@ export default function Calendar() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormData>(emptyForm)
   const dragIdRef = useRef<string | null>(null)
+  const resizeRef = useRef<{ id: string; startY: number; startEnd: string; date: string } | null>(null)
+  const [resizingEnd, setResizingEnd] = useState<string | null>(null)
+  const resizingEndRef = useRef<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [nowMinutes, setNowMinutes] = useState(() => {
     const n = new Date()
@@ -158,6 +161,79 @@ export default function Calendar() {
     if (!el) return
     el.scrollTo({ top: nowMinutes * PX_PER_MINUTE - 300, behavior: 'smooth' })
   }, [])
+
+
+  // Event resize
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!resizeRef.current) return
+      const { startY, startEnd } = resizeRef.current
+      const deltaY = e.clientY - startY
+      const deltaMin = Math.round(deltaY / PX_PER_MINUTE / 30) * 30
+      const [sh, sm] = startEnd.split(':').map(Number)
+      let totalMin = sh * 60 + sm + deltaMin
+      totalMin = Math.max(sh * 60 + 15, Math.min(totalMin, 24 * 60))
+      const h = Math.floor(totalMin / 60)
+      const m = totalMin % 60
+      const val = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+      resizingEndRef.current = val
+      setResizingEnd(val)
+    }
+    const onMouseUp = () => {
+      if (!resizeRef.current) return
+      const { id, date } = resizeRef.current
+      if (resizingEndRef.current) {
+        const ev = events.find(x => x.id === id)
+        if (ev && ev.date === date) {
+          updateEvent({ ...ev, endTime: resizingEndRef.current })
+        }
+      }
+      resizeRef.current = null
+      resizingEndRef.current = null
+      setResizingEnd(null)
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [events, updateEvent])
+
+  // Event drag-move
+  const moveRef = useRef<{ id: string; startDate: string; lastX: number; lastY: number } | null>(null)
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!moveRef.current) return
+      moveRef.current.lastX = e.clientX
+      moveRef.current.lastY = e.clientY
+    }
+    const onUp = () => {
+      if (moveRef.current) {
+        const el = document.elementFromPoint(
+          moveRef.current.lastX,
+          moveRef.current.lastY,
+        )
+        const cell = el?.closest('[data-date]') as HTMLElement | null
+        if (cell) {
+          const newDate = cell.getAttribute('data-date')
+          if (newDate && newDate !== moveRef.current.startDate) {
+            const ev = events.find(x => x.id === moveRef.current!.id)
+            if (ev) {
+              updateEvent({ ...ev, date: newDate })
+            }
+          }
+        }
+      }
+      moveRef.current = null
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    return () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+  }, [events, updateEvent])
 
   const weekDates = useMemo(() => {
     const ref = new Date()
@@ -350,6 +426,7 @@ export default function Calendar() {
               return (
                 <div
                   key={dateStr}
+                  data-date={dateStr}
                   className="flex-1 relative"
                   style={{ borderLeft: '1px solid var(--color-border)' }}
                 >
@@ -399,7 +476,7 @@ export default function Calendar() {
                   ))}
 
                   {/* Event blocks */}
-                  {dayEvents.map(ev => {
+                    {dayEvents.map(ev => {
                     const start = parseTime(ev.startTime)
                     const end = parseTime(ev.endTime)
                     const top = start
@@ -408,10 +485,9 @@ export default function Calendar() {
                     return (
                       <div
                         key={ev.id + ev.date}
-                        draggable
-                        onDragStart={e => {
-                          e.dataTransfer.setData('text/plain', ev.id)
-                          dragIdRef.current = ev.id
+                        onMouseDown={e => {
+                          if ((e.target as HTMLElement).closest('.resize-handle')) return
+                          moveRef.current = { id: ev.id, startDate: ev.date, lastX: e.clientX, lastY: e.clientY }
                         }}
                         onClick={e => {
                           e.stopPropagation()
@@ -420,18 +496,27 @@ export default function Calendar() {
                         className="absolute left-1 right-1 rounded-md px-2 py-1 text-xs cursor-grab active:cursor-grabbing overflow-hidden transition-opacity hover:opacity-80 z-20"
                         style={{
                           top,
-                          height,
+                          height: height + (resizingEnd ? 0 : 0),
                           background: ev.color,
                           color: '#fff',
                         }}
                       >
                         <div className="font-medium truncate">{ev.title}</div>
                         <div className="opacity-80">
-                          {ev.startTime}–{ev.endTime}
+                          {ev.startTime}–{resizingEnd && resizeRef.current?.id === ev.id ? resizingEnd : ev.endTime}
                           {ev.recurrence !== 'none' && (
                             <span className="ml-1">↻</span>
                           )}
                         </div>
+                        <div
+                          onMouseDown={e => {
+                            e.stopPropagation()
+                            e.preventDefault()
+                            resizeRef.current = { id: ev.id, startY: e.clientY, startEnd: ev.endTime, date: ev.date }
+                            setResizingEnd(ev.endTime)
+                          }}
+                          className="resize-handle absolute bottom-0 left-0 right-0 h-2 cursor-s-resize rounded-b-md hover:bg-black/10"
+                        />
                       </div>
                     )
                   })}
@@ -483,6 +568,7 @@ export default function Calendar() {
               return (
                 <div
                   key={dateStr}
+                  data-date={dateStr}
                   className="min-h-[90px] border-r border-b p-1 transition-colors hover:bg-(--color-surface-alt) cursor-pointer"
                   style={{
                     borderColor: 'var(--color-border)',
@@ -515,11 +601,15 @@ export default function Calendar() {
                   {dayEvents.slice(0, 3).map(ev => (
                     <div
                       key={ev.id + ev.date}
+                      onMouseDown={e => {
+                        e.stopPropagation()
+                        moveRef.current = { id: ev.id, startDate: ev.date, lastX: e.clientX, lastY: e.clientY }
+                      }}
                       onClick={e => {
                         e.stopPropagation()
                         openEdit(ev)
                       }}
-                      className="text-[10px] leading-tight truncate rounded px-1 py-0.5 mb-0.5 cursor-pointer hover:opacity-80"
+                      className="text-[10px] leading-tight truncate rounded px-1 py-0.5 mb-0.5 cursor-grab active:cursor-grabbing hover:opacity-80"
                       style={{ background: ev.color, color: '#fff' }}
                     >
                       {ev.startTime} {ev.title}
