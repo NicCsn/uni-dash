@@ -257,7 +257,7 @@ export default function Settings() {
             }}
           >
             <div className="text-sm" style={{ color: 'var(--color-text)' }}>
-              Uni Dash v0.1.4
+              Uni Dash v0.1.5
             </div>
             <button
               onClick={handleCheckUpdates}
@@ -296,7 +296,7 @@ export default function Settings() {
               color: 'var(--color-text-secondary)',
             }}
           >
-            <p>Uni Dash v0.1.4</p>
+            <p>Uni Dash v0.1.5</p>
             <p className="mt-1">All data stored locally. No telemetry. No accounts.</p>
           </div>
         </section>
