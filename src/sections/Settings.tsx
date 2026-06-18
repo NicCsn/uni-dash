@@ -3,6 +3,7 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs'
 import { appDataDir } from '@tauri-apps/api/path'
 import { check } from '@tauri-apps/plugin-updater'
+import { relaunch } from '@tauri-apps/plugin-process'
 import { isTauri } from '@tauri-apps/api/core'
 import { useTheme } from '../hooks/useTheme'
 import { useEvents } from '../hooks/useEvents'
@@ -37,6 +38,14 @@ export default function Settings() {
 
   async function handleCheckUpdates() {
     if (!isTauri()) return
+    if (updateStatus === 'available' && updateVersion) {
+      const update = await check()
+      if (update) {
+        await update.downloadAndInstall()
+        await relaunch()
+      }
+      return
+    }
     setUpdateStatus('checking')
     try {
       const update = await check()
@@ -257,7 +266,7 @@ export default function Settings() {
             }}
           >
             <div className="text-sm" style={{ color: 'var(--color-text)' }}>
-              Uni Dash v0.1.6
+              Uni Dash v0.1.7
             </div>
             <button
               onClick={handleCheckUpdates}
@@ -296,7 +305,7 @@ export default function Settings() {
               color: 'var(--color-text-secondary)',
             }}
           >
-            <p>Uni Dash v0.1.6</p>
+            <p>Uni Dash v0.1.7</p>
             <p className="mt-1">All data stored locally. No telemetry. No accounts.</p>
           </div>
         </section>
