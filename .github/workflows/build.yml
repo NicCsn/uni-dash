@@ -2,10 +2,10 @@ name: Build & Release
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags: ['v*']
   pull_request:
-    branches: [main]
+    branches: [master]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -137,24 +137,20 @@ jobs:
             MAC_FILE=$(gh release download "$TAG" --pattern "*.app.tar.gz" --dir /tmp/sigs -p 2>/dev/null && ls /tmp/sigs/*.app.tar.gz 2>/dev/null | head -1 | xargs basename)
             [ "$FIRST" = false ] && echo '    ,' >> latest.json
             FIRST=false
-            cat >> latest.json <<MACEOF
-            "darwin-aarch64": {
-              "signature": "$MAC_SIG",
-              "url": "https://github.com/$OWNER_REPO/releases/download/$TAG/$MAC_FILE"
-            }
-MACEOF
+            echo '    "darwin-aarch64": {' >> latest.json
+            echo '      "signature": "'"$MAC_SIG"'",' >> latest.json
+            echo '      "url": "https://github.com/'"$OWNER_REPO"'/releases/download/'"$TAG"'/'"$MAC_FILE"'"' >> latest.json
+            echo '    }' >> latest.json
           fi
 
           if [ -n "$LINUX_SIG" ]; then
             LINUX_FILE=$(ls /tmp/sigs/*.AppImage.tar.gz 2>/dev/null | head -1 | xargs basename)
             [ "$FIRST" = false ] && echo '    ,' >> latest.json
             FIRST=false
-            cat >> latest.json <<LINUXEOF
-            "linux-x86_64": {
-              "signature": "$LINUX_SIG",
-              "url": "https://github.com/$OWNER_REPO/releases/download/$TAG/$LINUX_FILE"
-            }
-LINUXEOF
+            echo '    "linux-x86_64": {' >> latest.json
+            echo '      "signature": "'"$LINUX_SIG"'",' >> latest.json
+            echo '      "url": "https://github.com/'"$OWNER_REPO"'/releases/download/'"$TAG"'/'"$LINUX_FILE"'"' >> latest.json
+            echo '    }' >> latest.json
           fi
 
           echo '  }' >> latest.json
