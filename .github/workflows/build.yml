@@ -110,16 +110,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set +e
           VERSION="${GITHUB_REF_NAME#v}"
           PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           TAG="${{ github.ref_name }}"
           OWNER_REPO="${{ github.repository }}"
 
           # Download macOS signature
-          gh release download "$TAG" --pattern "*.app.tar.gz.sig" --dir /tmp/sigs
+          gh release download "$TAG" --pattern "*.app.tar.gz.sig" --dir /tmp/sigs 2>/dev/null
 
           # Download Linux signature  
-          gh release download "$TAG" --pattern "*.AppImage.tar.gz.sig" --dir /tmp/sigs
+          gh release download "$TAG" --pattern "*.AppImage.tar.gz.sig" --dir /tmp/sigs 2>/dev/null
 
           MAC_SIG="$(cat /tmp/sigs/*.app.tar.gz.sig 2>/dev/null || echo '')"
           LINUX_SIG="$(cat /tmp/sigs/*.AppImage.tar.gz.sig 2>/dev/null || echo '')"
