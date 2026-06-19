@@ -895,7 +895,7 @@ const handlePickFolder = useCallback(async () => {
             }}
           >
             <div className="text-sm" style={{ color: 'var(--color-text)' }}>
-              {appName} v1.0.6
+              {appName} v1.1.0
             </div>
             <button
               onClick={handleCheckUpdates}
@@ -1204,7 +1204,7 @@ const handlePickFolder = useCallback(async () => {
               color: 'var(--color-text-secondary)',
             }}
           >
-            <p>{appName} v1.0.6</p>
+            <p>{appName} v1.1.0</p>
             <p className="mt-1">All data stored locally. No telemetry. No accounts.</p>
           </div>
         </section>

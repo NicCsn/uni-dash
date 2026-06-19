@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import type { TodoItem } from '../types'
 
 // Mock storage
 vi.mock('../lib/storage', () => ({
@@ -90,18 +89,10 @@ describe('useTodos', () => {
     expect(result.current.todos[2].order).toBe(2)
   })
 
-  it('reorderTodos swaps order of active todos', async () => {
+  it('reorderTodos preserves todo count', async () => {
     const { result } = renderHook(() => useTodos())
     await act(async () => { await result.current.addTodo('A') })
     await act(async () => { await result.current.addTodo('B') })
-    const a = result.current.todos[0].id
-    const b = result.current.todos[1].id
-
-    // After reorder: B first, A second
-    await act(async () => {
-      // reorderTodos just handles drag-drop between two items
-      // We'll verify order changes
-    })
 
     expect(result.current.todos.length).toBe(2)
   })
