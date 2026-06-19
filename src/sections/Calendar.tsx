@@ -5,6 +5,7 @@ import Modal from '../components/Modal'
 
 const HOUR_HEIGHT = 60
 const PX_PER_MINUTE = (HOUR_HEIGHT + 1) / 60
+const HOUR_HEADER_OFFSET = 48 // px — height of spacer above hour labels (py-2 + two lines text-xs)
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const COLORS = ['#3b82f6', '#22c55e', '#ef4444', '#a855f7', '#eab308', '#f97316']
 const RECURRENCE_LABELS: { value: Recurrence; label: string }[] = [
@@ -159,7 +160,7 @@ export default function Calendar() {
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    el.scrollTo({ top: nowMinutes * PX_PER_MINUTE - 300, behavior: 'smooth' })
+    el.scrollTo({ top: nowMinutes * PX_PER_MINUTE + HOUR_HEADER_OFFSET - 300, behavior: 'smooth' })
   }, [])
 
 
@@ -408,7 +409,7 @@ export default function Calendar() {
                 const isTodayShown = weekDates.some(d => formatDate(d) === todayStr)
                 if (!isTodayShown) return null
                 return (
-                  <div className="absolute right-0 pointer-events-none z-30" style={{ top: nowMinutes * PX_PER_MINUTE - 4 }}>
+                  <div className="absolute right-0 pointer-events-none z-30" style={{ top: nowMinutes * PX_PER_MINUTE + HOUR_HEADER_OFFSET - 4 }}>
                     <svg width="8" height="8" viewBox="0 0 8 8">
                       <circle cx="4" cy="4" r="4" fill="#ef4444" />
                     </svg>
@@ -533,7 +534,7 @@ export default function Calendar() {
               return (
                 <div
                   className="absolute left-0 pointer-events-none z-30"
-                  style={{ top: nowMinutes * PX_PER_MINUTE, left: 64, right: 0, height: '2px', background: '#ef4444' }}
+                  style={{ top: nowMinutes * PX_PER_MINUTE + HOUR_HEADER_OFFSET, left: 64, right: 0, height: '2px', background: '#ef4444' }}
                 />
               )
             })()}
