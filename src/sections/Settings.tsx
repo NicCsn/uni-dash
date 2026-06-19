@@ -761,6 +761,28 @@ const handlePickFolder = useCallback(async () => {
             >
               Clear All Events
             </button>
+            <button
+              onClick={async () => {
+                if (!window.confirm('Delete ALL data? This includes events, todos, links, labels, stats, and users. This cannot be undone!')) return
+                clearEvents()
+                await writeJson('todos.json', [])
+                await writeJson('links.json', [])
+                await writeJson('labels.json', [])
+                await writeJson('stats.json', { todoCompletions: {}, pomodoroSessions: {}, pomodoroFocusMinutes: {} })
+                await writeJson('users.json', [])
+                localStorage.removeItem('auth_config')
+                localStorage.removeItem('auth_crypto_key')
+                localStorage.removeItem('notification_config')
+                onLogout()
+              }}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:opacity-85 active:scale-95 self-start"
+              style={{
+                background: '#dc2626',
+                color: '#fff',
+              }}
+            >
+              Clear All Data
+            </button>
           </div>
         </section>
 
@@ -873,7 +895,7 @@ const handlePickFolder = useCallback(async () => {
             }}
           >
             <div className="text-sm" style={{ color: 'var(--color-text)' }}>
-              {appName} v1.0.3
+              {appName} v1.0.4
             </div>
             <button
               onClick={handleCheckUpdates}
@@ -886,10 +908,10 @@ const handlePickFolder = useCallback(async () => {
                 color: updateStatus === 'available' ? '#fff' : 'var(--color-text-secondary)',
               }}
             >
-              {updateStatus === 'idle' && 'Check for Updates'}
-              {updateStatus === 'checking' && 'Checking…'}
-              {updateStatus === 'uptodate' && 'Up to date ✓'}
-              {updateStatus === 'available' && `Update v${updateVersion} available`}
+              {updateStatus === 'idle' ? 'Check for Updates' :
+               updateStatus === 'checking' ? 'Checking…' :
+               updateStatus === 'uptodate' ? 'Up to date ✓' :
+               `Update v${updateVersion} available`}
             </button>
             {updateStatus === 'available' && (
               <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
@@ -1182,7 +1204,7 @@ const handlePickFolder = useCallback(async () => {
               color: 'var(--color-text-secondary)',
             }}
           >
-            <p>{appName} v1.0.3</p>
+            <p>{appName} v1.0.4</p>
             <p className="mt-1">All data stored locally. No telemetry. No accounts.</p>
           </div>
         </section>
