@@ -22,10 +22,9 @@ fn autostart_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 
 #[cfg(target_os = "linux")]
 fn autostart_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
-    tauri_plugin_autostart::init(
-        tauri_plugin_autostart::LinuxLauncher::Systemd,
-        Some(vec!["--autostart"]),
-    )
+    tauri_plugin_autostart::Builder::new()
+        .args(vec!["--autostart".to_string()])
+        .build()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
