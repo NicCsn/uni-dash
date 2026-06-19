@@ -12,6 +12,22 @@ fn set_app_icon(app: tauri::AppHandle, path: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+#[cfg(target_os = "macos")]
+fn autostart_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri_plugin_autostart::init(
+        tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+        Some(vec!["--autostart"]),
+    )
+}
+
+#[cfg(target_os = "linux")]
+fn autostart_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri_plugin_autostart::init(
+        tauri_plugin_autostart::LinuxLauncher::Systemd,
+        Some(vec!["--autostart"]),
+    )
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -21,10 +37,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_window_state::Builder::new().build())
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec!["--autostart"]),
-        ))
+        .plugin(autostart_plugin())
         .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![set_app_icon])
         .run(tauri::generate_context!())
